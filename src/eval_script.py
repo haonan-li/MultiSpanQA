@@ -90,7 +90,10 @@ def compute_scores(golds, preds, eval_type='em',average='micro'):
         nb_gold += max(len(gold), 1)
         nb_pred += max(len(pred), 1)
         if eval_type=='em':
-            nb_correct += len(gold.intersection(pred))
+            if len(gold) == 0 and len(pred) == 0:
+                nb_correct += 1
+            else:
+                nb_correct += len(gold.intersection(pred))
         else:
             p_score, r_score = count_overlap(gold, pred)
             nb_correct_p += p_score
