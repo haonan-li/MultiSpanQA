@@ -210,7 +210,7 @@ class ModelArguments:
     )
     use_auth_token: bool = field(default=False)
     structure_lambda: float= field(default=0.02)
-    span_lambda: float= field(default=100)
+    span_lambda: float= field(default=1)
 
 
 @dataclass

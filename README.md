@@ -39,7 +39,7 @@ python generate_squad_format.py
 This will generate two train files in squad formet. You can choose to fine-tune BERT on one of them (for example v1) using:
 
 ```bash
-python run_agger.py \
+python run_squad.py \
     --model_name_or_path bert-base-uncased \
     --train_file ../data/MultiSpan_data/squad_train_softmax_v1.json \
     --validation_file ../data/MultiSpan_data/squad_valid.json \
