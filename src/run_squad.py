@@ -20,8 +20,10 @@ Fine-tuning the library models for question answering using a slightly adapted v
 import logging
 import os
 import sys
+import collections
+from tqdm import tqdm
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Tuple
 
 import datasets
 from datasets import load_dataset, load_metric
@@ -149,8 +151,8 @@ def postprocess_qa_predictions(
                 }
 
             # Go through all possibilities for the `n_best_size` greater start and end logits.
-            start_indexes = np.argsort(start_logits)[-1 : -n_best_size - 1 : -1].tolist()
-            end_indexes = np.argsort(end_logits)[-1 : -n_best_size - 1 : -1].tolist()
+            start_indexes = np.argsort(start_logits)[-1: -n_best_size - 1: -1].tolist()
+            end_indexes = np.argsort(end_logits)[-1: -n_best_size - 1: -1].tolist()
             for start_index in start_indexes:
                 for end_index in end_indexes:
                     # Don't consider out-of-scope answers, either because the indices are out of bounds or correspond
@@ -394,7 +396,6 @@ class DataTrainingArguments:
 
 def main():
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
