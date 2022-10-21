@@ -535,7 +535,8 @@ def main():
                 previous_word_idx = word_idx
 
             tokenized_examples["labels"].append(label_ids)
-            tokenized_examples["num_span"].append(examples['num_span'][sample_index] / data_args.max_num_span)
+            # tokenized_examples["num_span"].append(examples['num_span'][sample_index] / data_args.max_num_span)
+
             tokenized_examples["structure"].append(
                 structure_to_id[examples['structure'][sample_index] if 'structure' in examples else '']
             )
