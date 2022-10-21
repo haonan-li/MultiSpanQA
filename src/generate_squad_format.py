@@ -85,14 +85,14 @@ def create_squad_format(file_path):
             text = ' '.join(context[st:ed])
             char_st = len(' '.join(context[:st]))
             answer_id = uuid.uuid4().hex
-            answers = {"text": [text], "answer_start": [char_st], "answer_id": answer_id,"document_id": id}
+            answers = {"text": text, "answer_start": char_st+1, "answer_id": answer_id,"document_id": id}
             para = {
                 "paragraphs": [
                     {
                         "qas": [{
                                     "question": ' '.join(piece['question']),
                                     "id": id,
-                                    "answers": answers,
+                                    "answers": [answers],
                                     "is_impossible": False
                                 }],
                         "context": ' '.join(context),
