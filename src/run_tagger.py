@@ -394,14 +394,11 @@ def main():
     set_seed(training_args.seed)
 
     data_files = {'train': os.path.join(data_args.data_dir, data_args.train_file),
-                  'validation':os.path.join(data_args.data_dir, "valid.json")}
+                  'validation': os.path.join(data_args.data_dir, "valid.json")}
     if training_args.do_predict:
         data_files['test'] = os.path.join(data_args.data_dir, "test.json")
 
     raw_datasets = load_dataset('json', field='data', data_files=data_files)
-
-    column_names = raw_datasets["train"].column_names
-    features = raw_datasets["train"].features
 
     question_column_name = data_args.question_column_name
     context_column_name = data_args.context_column_name
@@ -460,14 +457,6 @@ def main():
             "requirement"
         )
 
-    # Preprocessing the datasets.
-    # Preprocessing is slighlty different for training and evaluation.
-    if training_args.do_train:
-        column_names = raw_datasets["train"].column_names
-    elif training_args.do_eval:
-        column_names = raw_datasets["validation"].column_names
-    else:
-        column_names = raw_datasets["test"].column_names
     # Preprocessing the dataset
     # Padding strategy
     padding = "max_length" if data_args.pad_to_max_length else False
@@ -500,8 +489,8 @@ def main():
 
         # Let's label those examples!
         tokenized_examples["labels"] = []
-        tokenized_examples["num_span"] = []
-        tokenized_examples["structure"] = []
+        # tokenized_examples["num_span"] = []
+        # tokenized_examples["structure"] = []
         tokenized_examples["example_id"] = []
         tokenized_examples["word_ids"] = []
         tokenized_examples["sequence_ids"] = []
@@ -537,16 +526,18 @@ def main():
             tokenized_examples["labels"].append(label_ids)
             # tokenized_examples["num_span"].append(examples['num_span'][sample_index] / data_args.max_num_span)
 
-            tokenized_examples["structure"].append(
-                structure_to_id[examples['structure'][sample_index] if 'structure' in examples else '']
-            )
+            # tokenized_examples["structure"].append(
+            #     structure_to_id[examples['structure'][sample_index] if 'structure' in examples else '']
+            # )
             tokenized_examples["example_id"].append(examples["id"][sample_index])
             tokenized_examples["word_ids"].append(word_ids)
             tokenized_examples["sequence_ids"].append(sequence_ids)
         return tokenized_examples
 
+    # Preprocessing is slightly different for training and evaluation.
     if training_args.do_train or data_args.save_embeds:
         train_examples = raw_datasets["train"]
+        train_column_names = raw_datasets["train"].column_names
         if data_args.max_train_samples is not None:
             train_examples = train_examples.select(range(data_args.max_train_samples))
         with training_args.main_process_first(desc="train dataset map pre-processing"):
@@ -554,7 +545,7 @@ def main():
                 prepare_train_features,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
+                remove_columns=train_column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on train dataset",
             )
@@ -599,6 +590,7 @@ def main():
 
     if training_args.do_eval:
         eval_examples = raw_datasets["validation"]
+        eval_column_names = raw_datasets["validation"].column_names
         # Validation Feature Creation
         if data_args.max_eval_samples is not None:
             eval_examples = eval_examples.select(range(data_args.max_eval_samples))
@@ -607,13 +599,14 @@ def main():
                 prepare_validation_features,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
+                remove_columns=eval_column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on validation dataset",
             )
 
     if training_args.do_predict:
         predict_examples = raw_datasets["test"]
+        test_column_names = raw_datasets["test"].column_names
         # Predict Feature Creation
         if data_args.max_predict_samples is not None:
             predict_examples = predict_examples.select(range(data_args.max_predict_samples))
@@ -622,7 +615,7 @@ def main():
                 prepare_validation_features,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
+                remove_columns=test_column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on prediction dataset",
             )
