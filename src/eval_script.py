@@ -1,27 +1,21 @@
 # Script for MultiSpanQA evaluation
-import os
 import re
 import json
 import string
 import difflib
 import warnings
 import numpy as np
+from typing import Dict, List, Set
 
 
 def get_entities(label, token):
-    def _validate_chunk(chunk):
-        if chunk in ['O', 'B', 'I']:
-            return
-        else:
-            warnings.warn('{} seems not to be IOB tag.'.format(chunk))
     prev_tag = 'O'
-    prev_type = ''
     begin_offset = 0
     chunks = []
 
     # check no ent
     if isinstance(label[0], list):
-        for i,s in enumerate(label):
+        for i, s in enumerate(label):
             if len(set(s)) == 1:
                 chunks.append(('O', -i, -i))
     # for nested list
@@ -31,7 +25,8 @@ def get_entities(label, token):
         token = [item for sublist in token for item in sublist + ['O']]
 
     for i, chunk in enumerate(label + ['O']):
-        _validate_chunk(chunk)
+        if chunk not in ["O", "B", "I"]:
+            warnings.warn('{} seems not to be IOB tag.'.format(chunk))
         tag = chunk[0]
         if end_of_chunk(prev_tag, tag):
             chunks.append((' '.join(token[begin_offset:i]), begin_offset, i - 1))
@@ -41,7 +36,12 @@ def get_entities(label, token):
     return chunks
 
 
-def end_of_chunk(prev_tag, tag):
+def end_of_chunk(prev_tag: str, tag: str):
+    """Determine if we are at the end of an answer chunk.
+
+    :param prev_tag: previous tag
+    :param tag: current tag
+    """
     chunk_end = False
     if prev_tag == 'B' and tag == 'B':
         chunk_end = True
@@ -54,7 +54,12 @@ def end_of_chunk(prev_tag, tag):
     return chunk_end
 
 
-def start_of_chunk(prev_tag, tag):
+def start_of_chunk(prev_tag: str, tag: str):
+    """Determine if we are at the start of an answer chunk.
+
+    :param prev_tag: previous tag
+    :param tag: current tag
+    """
     chunk_start = False
     if tag == 'B':
         chunk_start = True
@@ -64,7 +69,10 @@ def start_of_chunk(prev_tag, tag):
 
 
 def normalize_answer(s):
-    """Lower text and remove punctuation, articles and extra whitespace."""
+    """Lower text and remove punctuation, articles and extra whitespace.
+
+    :param s: input string
+    """
     def remove_articles(text):
         regex = re.compile(r'\b(a|an|the)\b', re.UNICODE)
         return re.sub(regex, ' ', text)
@@ -82,21 +90,29 @@ def normalize_answer(s):
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
 
-def compute_scores(golds, preds, eval_type='em', average='micro'):
+def compute_scores(golds: Dict[Set[str]], preds: Dict[Set[str]], eval_type: str = 'em', average: str = 'micro'):
+    """Compute precision, recall and exact match (or f1) metrics.
+
+    :param golds: dictionary of gold XX
+    :param preds: dictionary of predictions
+    :param eval_type: Evaluation type. Can be either "em" or "overlap".
+    """
     nb_gold = 0
     nb_pred = 0
     nb_correct = 0
     nb_correct_p = 0
     nb_correct_r = 0
-    for k in list(golds.keys()):
-        gold = golds[k]
-        pred = preds[k]
+    for keys in list(golds.keys()):
+        gold = golds[keys]
+        pred = preds[keys]
         nb_gold += max(len(gold), 1)
         nb_pred += max(len(pred), 1)
         if eval_type == 'em':
             if len(gold) == 0 and len(pred) == 0:
+                # Exact match no answer case
                 nb_correct += 1
             else:
+                # Exact match comparison between two sets
                 nb_correct += len(gold.intersection(pred))
         else:
             p_score, r_score = count_overlap(gold, pred)
@@ -115,19 +131,30 @@ def compute_scores(golds, preds, eval_type='em', average='micro'):
     return p, r, f
 
 
-def count_overlap(gold, pred):
+def count_overlap(gold: set, pred: set):
+    """Count the overlap of the gold answer and the predicted answer.
+
+    :param gold: Set of gold answers
+    :param pred: Set of predicted answers
+    """
+    # Correct no answer prediction
     if len(gold) == 0 and (len(pred) == 0 or pred == {""}):
         return 1, 1
+
+    # Incorrect no answer prediction
     elif len(gold) == 0 or (len(pred) == 0 or pred == {""}):
         return 0, 0
-    p_scores = np.zeros((len(gold),len(pred)))
-    r_scores = np.zeros((len(gold),len(pred)))
-    for i, s1 in enumerate(gold):
-        for j, s2 in enumerate(pred):
-            s = difflib.SequenceMatcher(None, s1, s2)
-            _, _, longest = s.find_longest_match(0, len(s1), 0, len(s2))
-            p_scores[i][j] = longest/len(s2) if longest > 0 else 0
-            r_scores[i][j] = longest/len(s1) if longest > 0 else 0
+
+    # NOTE: Since it is possible to return multiple spans it is not clear which spans from pred should be compared to
+    #       each span in gold. So all are compared and the highest precision and recall are taken.
+    p_scores = np.zeros((len(gold), len(pred)))
+    r_scores = np.zeros((len(gold), len(pred)))
+    for i, gold_str in enumerate(gold):
+        for j, pred_str in enumerate(pred):
+            seq_matcher = difflib.SequenceMatcher(None, gold_str, pred_str)
+            _, _, longest_len = seq_matcher.find_longest_match(0, len(gold_str), 0, len(pred_str))
+            p_scores[i][j] = longest_len/len(pred_str) if longest_len > 0 else 0
+            r_scores[i][j] = longest_len/len(gold_str) if longest_len > 0 else 0
 
     p_score = sum(np.max(p_scores, axis=0))
     r_score = sum(np.max(r_scores, axis=1))
@@ -136,6 +163,10 @@ def count_overlap(gold, pred):
 
 
 def read_gold(gold_file):
+    """Read the gold file
+
+    :param gold_file: file path to the file with the golden answers
+    """
     with open(gold_file) as f:
         data = json.load(f)['data']
         golds = {}
@@ -145,6 +176,10 @@ def read_gold(gold_file):
 
 
 def read_pred(pred_file):
+    """Read the prediction file
+
+    :param pred_file: file path to the prediction file
+    """
     with open(pred_file) as f:
         preds = json.load(f)
     return preds
@@ -157,23 +192,25 @@ def multi_span_evaluate_from_file(pred_file, gold_file):
     return result
 
 
-def multi_span_evaluate(preds, golds):
+def multi_span_evaluate(preds: Dict[List[str]], golds: Dict[List[str]]):
     assert len(preds) == len(golds)
     assert preds.keys() == golds.keys()
+
     # Normalize the answer
     for k, v in golds.items():
         golds[k] = set(map(lambda x: normalize_answer(x), v))
     for k, v in preds.items():
         preds[k] = set(map(lambda x: normalize_answer(x), v))
+
     # Evaluate
-    em_p, em_r, em_f = compute_scores(golds, preds, eval_type='em')
-    overlap_p, overlap_r, overlap_f = compute_scores(golds, preds, eval_type='overlap')
-    result = {'em_precision': 100*em_p,
-              'em_recall': 100*em_r,
-              'em_f1': 100*em_f,
-              'overlap_precision': 100*overlap_p,
-              'overlap_recall': 100*overlap_r,
-              'overlap_f1': 100*overlap_f}
+    em_p, em_r, em_f = compute_scores(golds, preds, eval_type='em')  # type: ignore
+    overlap_p, overlap_r, overlap_f = compute_scores(golds, preds, eval_type='overlap')  # type: ignore
+    result = {'exact_match_precision': 100 * em_p,
+              'exact_match_recall': 100 * em_r,
+              'exact_match_f1': 100 * em_f,
+              'overlap_precision': 100 * overlap_p,
+              'overlap_recall': 100 * overlap_r,
+              'overlap_f1': 100 * overlap_f}
     return result
 
 
@@ -200,7 +237,7 @@ def remove_overlapped_pred(pred):
     for p in pred[1:]:
         no_overlap = True
         for g in new_pred:
-            if check_overlap(p['offsets'],g['offsets']):
+            if check_overlap(p['offsets'], g['offsets']):
                 no_overlap = False
         if no_overlap:
             new_pred.append(p)
@@ -261,6 +298,6 @@ if __name__ == "__main__":
     parser.add_argument('--pred_file', default="", type=str)
     parser.add_argument('--gold_file', default="", type=str)
     args = parser.parse_args()
-    result = multi_span_evaluate_from_file(args.pred_file, args.gold_file)
-    for k, v in result.items():
+    eval_result = multi_span_evaluate_from_file(args.pred_file, args.gold_file)
+    for k, v in eval_result.items():
         print(f"{k}: {v}")
