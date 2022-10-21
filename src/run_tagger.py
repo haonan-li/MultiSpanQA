@@ -80,6 +80,7 @@ class TaggerForMultiSpanQA(BertPreTrainedModel):
 
         return outputs
 
+
 def postprocess_tagger_predictions(
     examples,
     features,
@@ -115,7 +116,7 @@ def postprocess_tagger_predictions(
     # print(len(predictions),predictions)
     if len(predictions[0].shape) != 1: # Not CRF output
         if predictions[0].shape[-1] != 3:
-            raise Run(f"`predictions` should be in shape of (max_seq_length, 3).")
+            raise RuntimeError(f"`predictions` should be in shape of (max_seq_length, 3).")
         all_logits = predictions[0]
         all_hidden = predictions[1]
         all_labels = np.argmax(predictions[0], axis=2)
@@ -170,7 +171,7 @@ def postprocess_tagger_predictions(
             )
 
         previous_word_idx = -1
-        ignored_index = [] # Some example tokens will be disappear after tokenization.
+        ignored_index = []  # Some example tokens will disappear after tokenization.
         valid_labels = []
         valid_logits = []
         valid_hidden = []
@@ -404,7 +405,7 @@ def main():
     data_files = {'train': os.path.join(data_args.data_dir, data_args.train_file),
                   'validation':os.path.join(data_args.data_dir, "valid.json")}
     if training_args.do_predict:
-                  data_files['test'] = os.path.join(data_args.data_dir, "test.json")
+        data_files['test'] = os.path.join(data_args.data_dir, "test.json")
 
     raw_datasets = load_dataset('json', field='data', data_files=data_files)
 
@@ -564,7 +565,6 @@ def main():
                 desc="Running tokenizer on train dataset",
             )
 
-
     # Validation preprocessing
     def prepare_validation_features(examples):
         # Tokenize our examples with truncation and maybe padding, but keep the overflows using a stride. This results
@@ -602,7 +602,6 @@ def main():
             tokenized_examples["sequence_ids"].append(sequence_ids)
 
         return tokenized_examples
-
 
     if training_args.do_eval:
         eval_examples = raw_datasets["validation"]
