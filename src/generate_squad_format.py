@@ -4,9 +4,8 @@
 
 import os
 import json
-import json
 from copy import deepcopy
-from tqdm import tqdm_notebook
+
 
 def prepare_softmax_training_v1(data_dir='../data/MultiSpanQA_data', data_file='train.json'):
     with open(os.path.join(data_dir, data_file)) as f:
@@ -90,6 +89,7 @@ def create_squad_format(file_path):
     with open(os.path.join(fpath, 'squad_'+fname),'w') as f:
         json.dump(data, f)
 
+
 def prepare_softmax_training_expand(multi_dir='../data/MultiSpanQA_data', expand_dir='../data/MultiSpanQA_expand_data', data_file='train.json'):
     """ Merge single span version of MultiSpanQA with expanded no/single answer examples """
     with open(os.path.join(expand_dir,data_file)) as f:
@@ -106,6 +106,7 @@ def prepare_softmax_training_expand(multi_dir='../data/MultiSpanQA_data', expand
         with open(os.path.join(multi_dir,'train_softmax_v2.json')) as f1:
             ori_expand['data'] = no_multi_data + json.load(f1)['data']
             json.dump(ori_expand, f)
+
 
 def main():
     # use default dir and files
