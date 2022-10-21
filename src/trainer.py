@@ -25,6 +25,7 @@ from transformers import Trainer
 def get_labels() -> List[str]:
     return ["B", "I", "O"]
 
+
 class QuestionAnsweringTrainer(Trainer):
     def __init__(self, *args, data_files=None, eval_examples=None, post_process_function=None, **kwargs):
         super().__init__(*args, **kwargs)
