@@ -490,7 +490,7 @@ def main():
         # Let's label those examples!
         tokenized_examples["labels"] = []
         # tokenized_examples["num_span"] = []
-        # tokenized_examples["structure"] = []
+        tokenized_examples["structure"] = []
         tokenized_examples["example_id"] = []
         tokenized_examples["word_ids"] = []
         tokenized_examples["sequence_ids"] = []
@@ -526,9 +526,9 @@ def main():
             tokenized_examples["labels"].append(label_ids)
             # tokenized_examples["num_span"].append(examples['num_span'][sample_index] / data_args.max_num_span)
 
-            # tokenized_examples["structure"].append(
-            #     structure_to_id[examples['structure'][sample_index] if 'structure' in examples else '']
-            # )
+            tokenized_examples["structure"].append(
+                structure_to_id[examples['structure'][sample_index] if 'structure' in examples else '']
+            )
             tokenized_examples["example_id"].append(examples["id"][sample_index])
             tokenized_examples["word_ids"].append(word_ids)
             tokenized_examples["sequence_ids"].append(sequence_ids)
