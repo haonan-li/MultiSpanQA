@@ -129,7 +129,6 @@ def postprocess_tagger_predictions(
     if -100 not in id2label.values():
         id2label[-100] = 'O'
 
-
     # Build a map example to its corresponding features.
     example_id_to_index = {k: i for i, k in enumerate(examples["id"])}
     features_per_example = collections.defaultdict(list)
@@ -187,14 +186,14 @@ def postprocess_tagger_predictions(
             while sequence_ids[token_start_index] != 1:
                 token_start_index += 1
 
-            for word_idx,label,lo,hi in list(zip(word_ids,labels,logits,hidden))[token_start_index:]:
+            for word_idx, label, lo, hi in list(zip(word_ids,labels,logits,hidden))[token_start_index:]:
                 # Special tokens have a word id that is None. We set the label to -100 so they are automatically
                 # ignored in the loss function.
                 if word_idx is None:
                     continue
                 # We set the label for the first token of each word.
                 elif word_idx > previous_word_idx:
-                    ignored_index += range(previous_word_idx+1,word_idx)
+                    ignored_index += range(previous_word_idx+1, word_idx)
                     valid_labels.append(label)
                     valid_logits.append(lo)
                     valid_hidden.append(hi)
@@ -235,25 +234,18 @@ def postprocess_tagger_predictions(
 
     if save_embeds:
         logger.info(f"Saving embeds for CRF.")
-        ids_file = os.path.join(
-            output_dir, "ids.json" if prefix is None else f"{prefix}_ids.json"
-    )
+        ids_file = os.path.join(output_dir, "ids.json" if prefix is None else f"{prefix}_ids.json")
         with open(ids_file, "w") as writer:
             writer.write(json.dumps(all_ids, indent=4) + "\n")
 
-        logits_file = os.path.join(
-            output_dir, "logits.np" if prefix is None else f"{prefix}_logits.np"
-    )
-        hidden_file = os.path.join(
-            output_dir, "hidden.np" if prefix is None else f"{prefix}_hidden.np"
-    )
-        with open(logits_file, "wb") as f:
-            np.save(f,all_valid_logits)
-        with open(hidden_file, "wb") as f:
-            np.save(f,all_valid_hidden)
+        logits_file = os.path.join(output_dir, "logits.np" if prefix is None else f"{prefix}_logits.np")
+        hidden_file = os.path.join(output_dir, "hidden.np" if prefix is None else f"{prefix}_hidden.np")
+        with open(logits_file, "wb") as f1:
+            np.save(f1, all_valid_logits)
+        with open(hidden_file, "wb") as f1:
+            np.save(f1, all_valid_hidden)
 
     return prediction_file
-
 
 
 @dataclass
@@ -359,7 +351,6 @@ class DataTrainingArguments:
 
 def main():
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
@@ -545,7 +536,9 @@ def main():
 
             tokenized_examples["labels"].append(label_ids)
             tokenized_examples["num_span"].append(examples['num_span'][sample_index] / data_args.max_num_span)
-            tokenized_examples["structure"].append(structure_to_id[examples['structure'][sample_index] if 'structure' in examples else ''])
+            tokenized_examples["structure"].append(
+                structure_to_id[examples['structure'][sample_index] if 'structure' in examples else '']
+            )
             tokenized_examples["example_id"].append(examples["id"][sample_index])
             tokenized_examples["word_ids"].append(word_ids)
             tokenized_examples["sequence_ids"].append(sequence_ids)
@@ -654,7 +647,7 @@ def main():
     trainer = QuestionAnsweringTrainer(
         model=model,
         args=training_args,
-        data_files=data_files, # for quick evaluation
+        data_files=data_files,  # for quick evaluation
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         eval_examples=eval_examples if training_args.do_eval else None,
@@ -680,8 +673,8 @@ def main():
         )
         metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
+        trainer.log_metrics(split="train", metrics=metrics)
+        trainer.save_metrics(split="train", metrics=metrics)
         trainer.save_state()
     else:
         model.load_state_dict(torch.load(os.path.join(training_args.output_dir,'pytorch_model.bin')))
@@ -689,25 +682,26 @@ def main():
 
     if data_args.save_embeds:
         logger.info("*** Evaluate on Train ***")
-        metrics = trainer.evaluate(eval_dataset=train_dataset, eval_examples=train_examples,  metric_key_prefix = "train")
+        metrics = trainer.evaluate(eval_dataset=train_dataset, eval_examples=train_examples,  metric_key_prefix="train")
         metrics["train_samples"] = len(train_examples)
-        trainer.log_metrics("train", metrics)
+        trainer.log_metrics(split="train", metrics=metrics)
 
     # Evaluation
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
         metrics = trainer.evaluate()
         metrics["eval_samples"] = len(eval_examples)
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
+        trainer.log_metrics(split="eval", metrics=metrics)
+        trainer.save_metrics(split="eval", metrics=metrics)
 
     # Prediction
     if training_args.do_predict:
         logger.info("*** Predict ***")
         metrics = trainer.predict(predict_dataset, predict_examples)
         metrics["predict_samples"] = len(predict_examples)
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
+        trainer.log_metrics(split="predict", metrics=metrics)
+        trainer.save_metrics(split="predict", metrics=metrics)
+
 
 if __name__ == "__main__":
     main()
