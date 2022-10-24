@@ -15,7 +15,7 @@ huggingface >= 4.17.0
 ```bash
 python run_tagger.py \
     --model_name_or_path bert-base-uncased \
-    --data_dir ../data/MultiSpan_data \
+    --data_dir ../data/MultiSpanQA_data \
     --output_dir ../output \
     --overwrite_output_dir \
     --overwrite_cache \

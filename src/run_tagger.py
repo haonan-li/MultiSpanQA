@@ -80,6 +80,7 @@ class TaggerForMultiSpanQA(BertPreTrainedModel):
 
         return outputs
 
+
 def postprocess_tagger_predictions(
     examples,
     features,
@@ -115,7 +116,7 @@ def postprocess_tagger_predictions(
     # print(len(predictions),predictions)
     if len(predictions[0].shape) != 1: # Not CRF output
         if predictions[0].shape[-1] != 3:
-            raise Run(f"`predictions` should be in shape of (max_seq_length, 3).")
+            raise RuntimeError(f"`predictions` should be in shape of (max_seq_length, 3).")
         all_logits = predictions[0]
         all_hidden = predictions[1]
         all_labels = np.argmax(predictions[0], axis=2)
@@ -127,7 +128,6 @@ def postprocess_tagger_predictions(
 
     if -100 not in id2label.values():
         id2label[-100] = 'O'
-
 
     # Build a map example to its corresponding features.
     example_id_to_index = {k: i for i, k in enumerate(examples["id"])}
@@ -170,7 +170,7 @@ def postprocess_tagger_predictions(
             )
 
         previous_word_idx = -1
-        ignored_index = [] # Some example tokens will be disappear after tokenization.
+        ignored_index = []  # Some example tokens will disappear after tokenization.
         valid_labels = []
         valid_logits = []
         valid_hidden = []
@@ -186,14 +186,14 @@ def postprocess_tagger_predictions(
             while sequence_ids[token_start_index] != 1:
                 token_start_index += 1
 
-            for word_idx,label,lo,hi in list(zip(word_ids,labels,logits,hidden))[token_start_index:]:
+            for word_idx, label, lo, hi in list(zip(word_ids,labels,logits,hidden))[token_start_index:]:
                 # Special tokens have a word id that is None. We set the label to -100 so they are automatically
                 # ignored in the loss function.
                 if word_idx is None:
                     continue
                 # We set the label for the first token of each word.
                 elif word_idx > previous_word_idx:
-                    ignored_index += range(previous_word_idx+1,word_idx)
+                    ignored_index += range(previous_word_idx+1, word_idx)
                     valid_labels.append(label)
                     valid_logits.append(lo)
                     valid_hidden.append(hi)
@@ -234,25 +234,18 @@ def postprocess_tagger_predictions(
 
     if save_embeds:
         logger.info(f"Saving embeds for CRF.")
-        ids_file = os.path.join(
-            output_dir, "ids.json" if prefix is None else f"{prefix}_ids.json"
-    )
+        ids_file = os.path.join(output_dir, "ids.json" if prefix is None else f"{prefix}_ids.json")
         with open(ids_file, "w") as writer:
             writer.write(json.dumps(all_ids, indent=4) + "\n")
 
-        logits_file = os.path.join(
-            output_dir, "logits.np" if prefix is None else f"{prefix}_logits.np"
-    )
-        hidden_file = os.path.join(
-            output_dir, "hidden.np" if prefix is None else f"{prefix}_hidden.np"
-    )
-        with open(logits_file, "wb") as f:
-            np.save(f,all_valid_logits)
-        with open(hidden_file, "wb") as f:
-            np.save(f,all_valid_hidden)
+        logits_file = os.path.join(output_dir, "logits.np" if prefix is None else f"{prefix}_logits.np")
+        hidden_file = os.path.join(output_dir, "hidden.np" if prefix is None else f"{prefix}_hidden.np")
+        with open(logits_file, "wb") as f1:
+            np.save(f1, all_valid_logits)
+        with open(hidden_file, "wb") as f1:
+            np.save(f1, all_valid_hidden)
 
     return prediction_file
-
 
 
 @dataclass
@@ -358,7 +351,6 @@ class DataTrainingArguments:
 
 def main():
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
     parser = HfArgumentParser((ModelArguments, DataTrainingArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
@@ -402,14 +394,11 @@ def main():
     set_seed(training_args.seed)
 
     data_files = {'train': os.path.join(data_args.data_dir, data_args.train_file),
-                  'validation':os.path.join(data_args.data_dir, "valid.json")}
+                  'validation': os.path.join(data_args.data_dir, "valid.json")}
     if training_args.do_predict:
-                  data_files['test'] = os.path.join(data_args.data_dir, "test.json")
+        data_files['test'] = os.path.join(data_args.data_dir, "test.json")
 
     raw_datasets = load_dataset('json', field='data', data_files=data_files)
-
-    column_names = raw_datasets["train"].column_names
-    features = raw_datasets["train"].features
 
     question_column_name = data_args.question_column_name
     context_column_name = data_args.context_column_name
@@ -468,14 +457,6 @@ def main():
             "requirement"
         )
 
-    # Preprocessing the datasets.
-    # Preprocessing is slighlty different for training and evaluation.
-    if training_args.do_train:
-        column_names = raw_datasets["train"].column_names
-    elif training_args.do_eval:
-        column_names = raw_datasets["validation"].column_names
-    else:
-        column_names = raw_datasets["test"].column_names
     # Preprocessing the dataset
     # Padding strategy
     padding = "max_length" if data_args.pad_to_max_length else False
@@ -508,7 +489,7 @@ def main():
 
         # Let's label those examples!
         tokenized_examples["labels"] = []
-        tokenized_examples["num_span"] = []
+        # tokenized_examples["num_span"] = []
         tokenized_examples["structure"] = []
         tokenized_examples["example_id"] = []
         tokenized_examples["word_ids"] = []
@@ -543,15 +524,20 @@ def main():
                 previous_word_idx = word_idx
 
             tokenized_examples["labels"].append(label_ids)
-            tokenized_examples["num_span"].append(examples['num_span'][sample_index] / data_args.max_num_span)
-            tokenized_examples["structure"].append(structure_to_id[examples['structure'][sample_index] if 'structure' in examples else ''])
+            # tokenized_examples["num_span"].append(examples['num_span'][sample_index] / data_args.max_num_span)
+
+            tokenized_examples["structure"].append(
+                structure_to_id[examples['structure'][sample_index] if 'structure' in examples else '']
+            )
             tokenized_examples["example_id"].append(examples["id"][sample_index])
             tokenized_examples["word_ids"].append(word_ids)
             tokenized_examples["sequence_ids"].append(sequence_ids)
         return tokenized_examples
 
+    # Preprocessing is slightly different for training and evaluation.
     if training_args.do_train or data_args.save_embeds:
         train_examples = raw_datasets["train"]
+        train_column_names = raw_datasets["train"].column_names
         if data_args.max_train_samples is not None:
             train_examples = train_examples.select(range(data_args.max_train_samples))
         with training_args.main_process_first(desc="train dataset map pre-processing"):
@@ -559,11 +545,10 @@ def main():
                 prepare_train_features,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
+                remove_columns=train_column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on train dataset",
             )
-
 
     # Validation preprocessing
     def prepare_validation_features(examples):
@@ -603,9 +588,9 @@ def main():
 
         return tokenized_examples
 
-
     if training_args.do_eval:
         eval_examples = raw_datasets["validation"]
+        eval_column_names = raw_datasets["validation"].column_names
         # Validation Feature Creation
         if data_args.max_eval_samples is not None:
             eval_examples = eval_examples.select(range(data_args.max_eval_samples))
@@ -614,13 +599,14 @@ def main():
                 prepare_validation_features,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
+                remove_columns=eval_column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on validation dataset",
             )
 
     if training_args.do_predict:
         predict_examples = raw_datasets["test"]
+        test_column_names = raw_datasets["test"].column_names
         # Predict Feature Creation
         if data_args.max_predict_samples is not None:
             predict_examples = predict_examples.select(range(data_args.max_predict_samples))
@@ -629,7 +615,7 @@ def main():
                 prepare_validation_features,
                 batched=True,
                 num_proc=data_args.preprocessing_num_workers,
-                remove_columns=column_names,
+                remove_columns=test_column_names,
                 load_from_cache_file=not data_args.overwrite_cache,
                 desc="Running tokenizer on prediction dataset",
             )
@@ -655,7 +641,7 @@ def main():
     trainer = QuestionAnsweringTrainer(
         model=model,
         args=training_args,
-        data_files=data_files, # for quick evaluation
+        data_files=data_files,  # for quick evaluation
         train_dataset=train_dataset if training_args.do_train else None,
         eval_dataset=eval_dataset if training_args.do_eval else None,
         eval_examples=eval_examples if training_args.do_eval else None,
@@ -681,8 +667,8 @@ def main():
         )
         metrics["train_samples"] = min(max_train_samples, len(train_dataset))
 
-        trainer.log_metrics("train", metrics)
-        trainer.save_metrics("train", metrics)
+        trainer.log_metrics(split="train", metrics=metrics)
+        trainer.save_metrics(split="train", metrics=metrics)
         trainer.save_state()
     else:
         model.load_state_dict(torch.load(os.path.join(training_args.output_dir,'pytorch_model.bin')))
@@ -690,25 +676,26 @@ def main():
 
     if data_args.save_embeds:
         logger.info("*** Evaluate on Train ***")
-        metrics = trainer.evaluate(eval_dataset=train_dataset, eval_examples=train_examples,  metric_key_prefix = "train")
+        metrics = trainer.evaluate(eval_dataset=train_dataset, eval_examples=train_examples,  metric_key_prefix="train")
         metrics["train_samples"] = len(train_examples)
-        trainer.log_metrics("train", metrics)
+        trainer.log_metrics(split="train", metrics=metrics)
 
     # Evaluation
     if training_args.do_eval:
         logger.info("*** Evaluate ***")
         metrics = trainer.evaluate()
         metrics["eval_samples"] = len(eval_examples)
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
+        trainer.log_metrics(split="eval", metrics=metrics)
+        trainer.save_metrics(split="eval", metrics=metrics)
 
     # Prediction
     if training_args.do_predict:
         logger.info("*** Predict ***")
         metrics = trainer.predict(predict_dataset, predict_examples)
         metrics["predict_samples"] = len(predict_examples)
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
+        trainer.log_metrics(split="predict", metrics=metrics)
+        trainer.save_metrics(split="predict", metrics=metrics)
+
 
 if __name__ == "__main__":
     main()

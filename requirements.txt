@@ -1,0 +1,7 @@
+importlib-metadata; python_version < '3.8'
+torch>1.9,<1.13
+numpy
+transformers==4.21.2
+datasets
+tqdm
+huggingface-hub>=0.5.0

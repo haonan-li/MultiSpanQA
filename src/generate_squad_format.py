@@ -4,9 +4,9 @@
 
 import os
 import json
-import json
 from copy import deepcopy
 from tqdm import tqdm_notebook
+import uuid
 
 def prepare_softmax_training_v1(data_dir='../data/MultiSpanQA_data', data_file='train.json'):
     with open(os.path.join(data_dir, data_file)) as f:
@@ -79,16 +79,42 @@ def create_squad_format(file_path):
         if ('test' in fname) or st == -1:
             new_data.append({'question':' '.join(piece['question']), 'context':' '.join(context),'answers':{"text": [], "answer_start": []}, 'id':id})
         else:
-            if st != -1: ed = label.index('O', st) if 'O' in label[st:] else st+1
-            else: ed =  -1
-            text = ' '.join(context[st:ed])
-            char_st = len(' '.join(context[:st]))
-            answers = {"text": [text], "answer_start": [char_st]}
-            new_data.append({'question':' '.join(piece['question']), 'context':' '.join(context),'answers':answers, 'id':id})
+            para = {
+                "paragraphs": [
+                    {
+                        "qas": [{
+                            "question": ' '.join(piece['question']),
+                            "id": id,
+                            "answers": [],
+                            "is_impossible": False
+                        }],
+                        "context": ' '.join(context),
+                        "document_id": id}]}
+
+            if st != -1:
+                text = ""
+                for idx, tag in enumerate(label):
+
+                    if tag == "B":
+                        text = context[idx]
+                        char_st = len(' '.join(context[:idx]))
+                    if tag == "I":
+                        text += " "+ context[idx]
+
+                    if len(text) > 0 and tag == "O":
+                        answer_id = uuid.uuid4().hex
+
+                        answer = {"text": text, "answer_start": char_st + 1, "answer_id": answer_id, "document_id": id}
+                        para["paragraphs"][0]["qas"][0]["answers"].append(answer)
+                        text = ""
+
+            new_data.append(para)
+
+
 
     data['data'] = new_data
     with open(os.path.join(fpath, 'squad_'+fname),'w') as f:
-        json.dump(data, f)
+        json.dump(data, f, indent=4)
 
 def prepare_softmax_training_expand(multi_dir='../data/MultiSpanQA_data', expand_dir='../data/MultiSpanQA_expand_data', data_file='train.json'):
     """ Merge single span version of MultiSpanQA with expanded no/single answer examples """
@@ -113,14 +139,16 @@ def main():
     prepare_softmax_training_v2()
     prepare_softmax_training_expand()
 
-    file_list = ['../data/MultiSpanQA_data/train_softmax_v1.json',
+    file_list = [
+                 '../data/MultiSpanQA_data/train_softmax_v1.json',
                  '../data/MultiSpanQA_data/train_softmax_v2.json',
                  '../data/MultiSpanQA_data/valid.json',
                  '../data/MultiSpanQA_data/test.json',
                  '../data/MultiSpanQA_expand_data/train_softmax_v1.json',
                  '../data/MultiSpanQA_expand_data/train_softmax_v2.json',
                  '../data/MultiSpanQA_expand_data/valid.json',
-                 '../data/MultiSpanQA_expand_data/test.json']
+                 '../data/MultiSpanQA_expand_data/test.json'
+                 ]
     for f in file_list:
         create_squad_format(f)
 
