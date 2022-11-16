@@ -90,7 +90,7 @@ def normalize_answer(s):
     return white_space_fix(remove_articles(remove_punc(lower(s))))
 
 
-def compute_scores(golds: Dict[Set[str]], preds: Dict[Set[str]], eval_type: str = 'em', average: str = 'micro'):
+def compute_scores(golds: Dict[str, Set], preds: Dict[str, Set], eval_type: str = 'em', average: str = 'micro'):
     """Compute precision, recall and exact match (or f1) metrics.
 
     :param golds: dictionary of gold XX
@@ -192,7 +192,7 @@ def multi_span_evaluate_from_file(pred_file, gold_file):
     return result
 
 
-def multi_span_evaluate(preds: Dict[List[str]], golds: Dict[List[str]]):
+def multi_span_evaluate(preds: Dict[str, Set], golds: Dict[str, Set]):
     assert len(preds) == len(golds)
     assert preds.keys() == golds.keys()
 
