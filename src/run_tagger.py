@@ -16,7 +16,6 @@ from datasets import load_dataset, load_metric
 import transformers
 from transformers import (
     AutoConfig,
-    AutoModelForQuestionAnswering,
     AutoTokenizer,
     DataCollatorForTokenClassification,
     HfArgumentParser,
@@ -25,6 +24,8 @@ from transformers import (
     set_seed,
     BertPreTrainedModel,
     BertModel,
+    RobertaPreTrainedModel,
+    RobertaModel,
 )
 from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils.versions import require_version
@@ -38,7 +39,7 @@ logger = logging.getLogger(__name__)
 os.environ["WANDB_DISABLED"] = "true"
 
 
-class TaggerForMultiSpanQA(BertPreTrainedModel):
+class BertTaggerForMultiSpanQA(BertPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
@@ -57,6 +58,49 @@ class TaggerForMultiSpanQA(BertPreTrainedModel):
     ):
 
         outputs = self.bert(
+            input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+        )
+
+        sequence_output = outputs[0]
+        sequence_output = self.dropout(sequence_output)
+        logits = self.classifier(sequence_output)
+
+        outputs = (logits, ) + outputs[:]
+        if labels is not None:
+            loss_fct = CrossEntropyLoss()
+            # Only keep active parts of the loss
+            active_loss = attention_mask.view(-1) == 1
+            active_logits = logits.view(-1, self.num_labels)
+            active_labels = torch.where(
+                active_loss, labels.view(-1), torch.tensor(loss_fct.ignore_index).type_as(labels)
+            )
+            loss = loss_fct(active_logits, active_labels)
+            outputs = (loss,) + outputs
+
+        return outputs
+
+
+class RobertaTaggerForMultiSpanQA(RobertaPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.num_labels = config.num_labels
+
+        self.roberta = RobertaModel(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.init_weights()
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        labels=None,
+    ):
+
+        outputs = self.roberta(
             input_ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
@@ -442,12 +486,20 @@ def main():
             use_auth_token=True if model_args.use_auth_token else None,
         )
 
-    model = TaggerForMultiSpanQA.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-    )
+    if 'roberta' in model_args.model_name_or_path:
+        model = RobertaTaggerForMultiSpanQA.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+        )
+    else:
+        model = BertTaggerForMultiSpanQA.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+        )
 
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
