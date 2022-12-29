@@ -1,6 +1,18 @@
 # MultiSpanQA: A Dataset for Multi-Span Question Answering
 
-Welcome to submit your model's prediction to our [leaderboard](https://multi-span.github.io).
+This repo provides the source code & data of our paper: [MultiSpanQA: A Dataset for Multi-Span Question Answering](https://aclanthology.org/2022.naacl-main.90/) (NAACL 2022).
+
+```bib
+@inproceedings{li2022multispanqa,
+  title={MultiSpanQA: A Dataset for Multi-Span Question Answering},
+  author={Li, Haonan and Tomko, Martin and Vasardani, Maria and Baldwin, Timothy},
+  booktitle={Proceedings of the 2022 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies},
+  pages={1250--1260},
+  year={2022}
+}
+```
+
+Leaderboard: [https://multi-span.github.io](https://multi-span.github.io).
 
 ## Requirements
 
@@ -39,10 +51,10 @@ You are expected to get similar results as:
   </tr>
   <tr>
     <th></th>
-    <th>Precision.</th>
+    <th>Precision</th>
     <th>Recall</th>
     <th>F1</th>
-    <th>Precision.</th>
+    <th>Precision</th>
     <th>Recall</th>
     <th>F1</th>
   </tr>
@@ -113,3 +125,4 @@ python run_squad.py \
     --doc_stride 128 
 
 ```
+
