@@ -450,7 +450,7 @@ def main():
     if data_args.test_file is not None:
         data_files["test"] = data_args.test_file
         extension = data_args.test_file.split(".")[-1]
-    raw_datasets = load_dataset(extension, data_files=data_files, field="data", cache_dir=model_args.cache_dir)
+    raw_datasets = load_dataset(path='./squad_reader.py', data_files=data_files, cache_dir=model_args.cache_dir)
 
     # Load pretrained model and tokenizer
     config = AutoConfig.from_pretrained(
